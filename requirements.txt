@@ -2,6 +2,5 @@ streamlit
 tensorflow
 matplotlib
 gdown
+numpy==1.23.5
 opencv-python-headless==4.5.5.62
-numpy
-scipy
