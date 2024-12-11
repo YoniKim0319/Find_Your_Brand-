@@ -72,10 +72,15 @@ def generate_grad_cam(model, image, layer_name="conv5_block3_out"):
     weights = tf.reduce_mean(grads, axis=(0, 1))
     cam = np.dot(conv_output[0], weights)
 
-    # Grad-CAM 결과 시각화
-    cam = cv2.resize(cam.numpy(), (224, 224))
-    cam = np.maximum(cam, 0)
-    heatmap = cam / cam.max()  # Normalize
+    # Grad-CAM 결과를 NumPy 배열로 변환
+    if tf.is_tensor(cam):
+        cam = cam.numpy()  # TensorFlow 텐서를 NumPy 배열로 변환
+    cam = cv2.resize(cam, (224, 224))  # OpenCV로 크기 조정
+    cam = np.maximum(cam, 0)  # ReLU 적용
+    if cam.max() != 0:  # ZeroDivision 방지
+        heatmap = cam / cam.max()  # Normalize
+    else:
+        heatmap = cam  # 모든 값이 0인 경우 그대로 반환
 
     return heatmap, pred_index
 
@@ -116,19 +121,23 @@ if uploaded_files:
         st.write(f"### 이미지 {i+1}")
         heatmap_dict = {}
         for brand, model in models.items():
-            # Grad-CAM 생성
-            heatmap, _ = generate_grad_cam(model, img)
-            overlay = overlay_grad_cam(original_images[i], heatmap)
+            try:
+                # Grad-CAM 생성
+                heatmap, _ = generate_grad_cam(model, img)
+                overlay = overlay_grad_cam(original_images[i], heatmap)
 
-            # Grad-CAM 결과 표시
-            heatmap_dict[brand] = heatmap
-            st.image(overlay, caption=f"{brand} 모델의 Grad-CAM 결과", use_column_width=True)
+                # Grad-CAM 결과 표시
+                heatmap_dict[brand] = heatmap
+                st.image(overlay, caption=f"{brand} 모델의 Grad-CAM 결과", use_column_width=True)
+            except Exception as e:
+                st.write(f"{brand} 모델 Grad-CAM 생성 중 오류 발생: {e}")
 
         # 전체 브랜드의 유사도 Heatmap 비교
         st.write("### 브랜드별 Grad-CAM 비교")
         fig, axs = plt.subplots(1, len(BRANDS), figsize=(15, 5))
         for j, brand in enumerate(BRANDS):
-            axs[j].imshow(heatmap_dict[brand])
-            axs[j].set_title(brand)
-            axs[j].axis('off')
+            if brand in heatmap_dict:
+                axs[j].imshow(heatmap_dict[brand])
+                axs[j].set_title(brand)
+                axs[j].axis('off')
         st.pyplot(fig)
