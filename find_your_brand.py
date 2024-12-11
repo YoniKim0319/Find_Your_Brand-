@@ -8,7 +8,7 @@ Original file is located at
 """
 
 # 필요한 라이브러리 설치
-!pip install streamlit tensorflow matplotlib opencv-python gdown
+pip install streamlit tensorflow matplotlib opencv-python gdown
 
 # Streamlit 앱 코드
 import streamlit as st
