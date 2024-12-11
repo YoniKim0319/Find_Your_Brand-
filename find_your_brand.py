@@ -7,9 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1VOsl2D-9tU-cQ93ooDDBbDOYYxxTBdqe
 """
 
-# 필요한 라이브러리 설치
-pip install streamlit tensorflow matplotlib opencv-python gdown
-
 # Streamlit 앱 코드
 import streamlit as st
 import os
