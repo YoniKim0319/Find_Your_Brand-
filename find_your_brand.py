@@ -7,6 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1VOsl2D-9tU-cQ93ooDDBbDOYYxxTBdqe
 """
 
+
 # Streamlit 앱 코드
 import streamlit as st
 import os
@@ -82,7 +83,7 @@ def generate_grad_cam(model, image, layer_name="conv5_block3_out"):
     else:
         heatmap = cam  # 모든 값이 0인 경우 그대로 반환
 
-    return heatmap, pred_index
+    return heatmap, pred_index, preds[0]  # 예측 결과 반환 추가
 
 # Grad-CAM 결과를 원본 이미지 위에 겹치기
 def overlay_grad_cam(image, heatmap):
@@ -100,7 +101,7 @@ def process_input_image(image_path):
 
 # Streamlit UI
 st.title("브랜드 엠버서더 추천 시스템 (시각화 포함)")
-st.write("5장의 이미지를 업로드하면, 어떤 브랜드와 가장 유사한지 분석하고 시각화합니다.")
+st.write("5장의 이미지를 업로드하면, 최종 브랜드와 다른 브랜드 간 차이를 시각적으로 확인할 수 있습니다.")
 
 # 이미지 업로드
 uploaded_files = st.file_uploader("이미지를 업로드하세요 (최대 5장)", accept_multiple_files=True, type=["jpg", "jpeg", "png"])
@@ -119,25 +120,30 @@ if uploaded_files:
     # 모델 로드 및 Grad-CAM 시각화
     for i, img in enumerate(input_images):
         st.write(f"### 이미지 {i+1}")
+        brand_scores = {}
         heatmap_dict = {}
         for brand, model in models.items():
             try:
-                # Grad-CAM 생성
-                heatmap, _ = generate_grad_cam(model, img)
-                overlay = overlay_grad_cam(original_images[i], heatmap)
-
-                # Grad-CAM 결과 표시
+                # Grad-CAM 생성 및 유사도 계산
+                heatmap, pred_index, preds = generate_grad_cam(model, img)
                 heatmap_dict[brand] = heatmap
-                st.image(overlay, caption=f"{brand} 모델의 Grad-CAM 결과", use_column_width=True)
+                # 브랜드별 유사도 저장
+                brand_scores[brand] = preds[0]
             except Exception as e:
                 st.write(f"{brand} 모델 Grad-CAM 생성 중 오류 발생: {e}")
 
-        # 전체 브랜드의 유사도 Heatmap 비교
-        st.write("### 브랜드별 Grad-CAM 비교")
+        # 브랜드 유사도 출력
+        sorted_scores = sorted(brand_scores.items(), key=lambda x: x[1], reverse=True)
+        recommended_brand = sorted_scores[0]
+        st.success(
+            f"축하합니다! 당신은 **{recommended_brand[1] * 100:.2f}%** 확률로 **{recommended_brand[0]}** 브랜드의 엠버서더로 발탁되었습니다!"
+        )
+
+        # 최종 브랜드와 다른 브랜드 간의 차이 시각화
+        st.write("### 추천 브랜드와 다른 브랜드의 Grad-CAM 차이")
         fig, axs = plt.subplots(1, len(BRANDS), figsize=(15, 5))
-        for j, brand in enumerate(BRANDS):
-            if brand in heatmap_dict:
-                axs[j].imshow(heatmap_dict[brand])
-                axs[j].set_title(brand)
-                axs[j].axis('off')
+        for j, (brand, score) in enumerate(sorted_scores):
+            axs[j].imshow(heatmap_dict[brand])
+            axs[j].set_title(f"{brand}\n{score * 100:.2f}%")
+            axs[j].axis('off')
         st.pyplot(fig)
